@@ -1,4 +1,4 @@
-import DocsPage from "@modules/pages/about";
+import DocsPage from "@modules/Bancos/pages/about";
 import { Route, Routes } from "react-router-dom";
 
 export function IndexRoutes() {

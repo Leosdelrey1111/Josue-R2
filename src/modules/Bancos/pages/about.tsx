@@ -1,7 +1,7 @@
 import { title } from "@components/primitives";
 import { GenericCard } from "@components/GenericCard";
 import { GenericTable } from "@components/GenericTable";
-import DefaultLayout from "../../layouts/default";
+import DefaultLayout from "../../../layouts/default";
 
 export default function DocsPage() {
   return (
