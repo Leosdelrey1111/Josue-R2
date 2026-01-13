@@ -5,13 +5,12 @@ export function IndexRoutes() {
   return (
     <Routes>
       {/* <Route path="dashboard" element={<DashboardLayout />}> */}
-      {/* <Route index element={<DashboardIndex />} /> */}
-
       <Route>
         <Route element={<DocsPage />} path="empresas" />
       </Route>
       {/* <Route path="forbidden" element={<Forbidden />} />
       <Route path="*" element={<NotFound />} /> */}
+      {/* <Routes> */}
     </Routes>
   );
 }
