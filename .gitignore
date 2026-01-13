@@ -21,9 +21,15 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+.env
 
 
 pnpm-lock.yaml
 yarn.lock
 package-lock.json
 bun.lockb
+.env
+.prettierrc
+
+#Custom
+.env

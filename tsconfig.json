@@ -6,7 +6,15 @@
     "module": "ESNext",
     "skipLibCheck": true,
     "paths": {
-      "@/*": ["./src/*"]
+      // "@api/*": ["./src/api/*"],
+      // "@assets/*": ["./src/assets/*"],
+      "@components/*": ["./src/components/*"],
+      // "@context/*": ["./src/context/*"],
+      "@layout/*": ["./src/layout/*"],
+      "@modules/*": ["./src/modules/*"],
+      // "@routes/*": ["./src/routes/*"],
+      "@styles/*": ["./src/styles/*"]
+      // "@shared/*": ["./src/shared/*"]
     },
 
     /* Bundler mode */
@@ -20,9 +28,8 @@
     /* Linting */
     "strict": true,
     "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "noFallthroughCasesInSwitch": true
+    "noUnusedParameters": true
   },
-  "include": ["src"],
+  "include": ["src", "public/i18n/i18n.ts"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }
