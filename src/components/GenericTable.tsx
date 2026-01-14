@@ -8,69 +8,60 @@ import {
   TableCell,
   Input,
   Button,
-  DropdownTrigger,
-  Dropdown,
-  DropdownMenu,
-  DropdownItem,
   Pagination,
   Selection,
   SortDescriptor,
 } from "@heroui/react";
-import { ChevronDownIcon, SearchIcon } from "@styles/Icons";
-import { useTranslation } from "react-i18next";
-import { capitalize, ColumnDefinition, DefaultTableConfig, FilterOption, getObjectValue, ItemData, searchInObjectValues } from "./configs/GenericTableConfigs";
+
+export interface ColumnDefinition {
+  uid: string;
+  name: string | ReactNode;
+  sortable?: boolean;
+}
+
+export interface ItemData {
+  id: string | number;
+  [key: string]: any;
+}
 
 export interface GenericTableProps<T extends ItemData> {
-  /** Datos a mostrar en la tabla */
   data: T[];
-  /** Definición de columnas para la tabla */
   columns: ColumnDefinition[];
-  /** Opciones para el filtro de estado  */
-  filterOptions?: FilterOption[];
-  /** Columnas visibles inicialmente */
   initialVisibleColumns?: string[];
-  /** Función para renderizar celdas personalizadas */
   renderCell?: (item: T, columnKey: string) => ReactNode;
-  /** Contenido adicional para la barra superior */
   topContentExtras?: ReactNode;
-  /** Campo por el cual realizar la búsqueda */
-  searchField?: string;
-  /** Número inicial de filas por página */
   defaultRowsPerPage?: number;
-  /** Columna para ordenamiento inicial */
   defaultSortColumn?: string;
-  /** Dirección de ordenamiento inicial */
   defaultSortDirection?: "ascending" | "descending";
-  /** Ocultar la funcionalidad de selección múltiple */
   hideSelection?: boolean;
-  /** Clase CSS adicional para el contenedor */
   className?: string;
-  // Datos default de búsqueda
-  defaultFilter?: string;
-  /** Desactivar completamente el ordenamiento (mantener orden del backend) */
   disableSorting?: boolean;
+  hideSearch?: boolean;
+  hidePagination?: boolean;
 }
+
+const getObjectValue = (obj: any, path: string): any => {
+  return path.split('.').reduce((acc, part) => acc?.[part], obj);
+};
 
 export const GenericTable = <T extends ItemData>({
   data,
   columns,
-  filterOptions,
   initialVisibleColumns,
   renderCell,
   topContentExtras,
-  defaultRowsPerPage = DefaultTableConfig.rowsPerPage,
+  defaultRowsPerPage = 10,
   defaultSortColumn,
-  defaultSortDirection = DefaultTableConfig.sortDirection,
-  hideSelection = DefaultTableConfig.hideSelection,
+  defaultSortDirection = "ascending",
+  hideSelection = true,
   className,
-  defaultFilter = "",
   disableSorting = false,
+  hideSearch = false,
+  hidePagination = false,
 }: GenericTableProps<T>): JSX.Element => {
-  const { t } = useTranslation(["common"]);
-  const [filterValue, setFilterValue] = useState<string>(defaultFilter);
+  const [filterValue, setFilterValue] = useState<string>("");
   const [selectedKeys, setSelectedKeys] = useState<Selection>(new Set([]));
-  const [visibleColumns, setVisibleColumns] = useState<Selection>(new Set(initialVisibleColumns || columns.map((col) => col.uid)));
-  const [statusFilter, setStatusFilter] = useState<Selection>("all");
+  const [visibleColumns] = useState<Selection>(new Set(initialVisibleColumns || columns.map((col) => col.uid)));
   const [rowsPerPage, setRowsPerPage] = useState<number>(defaultRowsPerPage);
   const [sortDescriptor, setSortDescriptor] = useState<SortDescriptor>({
     column: defaultSortColumn || columns[0]?.uid || "",
@@ -80,60 +71,49 @@ export const GenericTable = <T extends ItemData>({
 
   const hasSearchFilter = Boolean(filterValue);
 
-  // Columnas de encabezado según las visibles
   const headerColumns = useMemo(() => {
     if (visibleColumns === "all") return columns;
     return columns.filter((column) => Array.from(visibleColumns as Set<string>).includes(column.uid));
   }, [visibleColumns, columns]);
 
-  // Filtrado de elementos
   const filteredItems = useMemo(() => {
     let filteredData = [...data];
 
     if (hasSearchFilter) {
-      filteredData = filteredData.filter((item) => searchInObjectValues(item, filterValue, columns, renderCell));
-    }
-
-    // Filtro por status
-    if (statusFilter !== "all" && filterOptions && Array.from(statusFilter as Set<string>).length !== filterOptions.length) {
       filteredData = filteredData.filter((item) => {
-        const statusValue = getObjectValue(item, "status");
-        return Array.from(statusFilter as Set<string>).includes(statusValue);
+        return Object.values(item).some((value) =>
+          String(value).toLowerCase().includes(filterValue.toLowerCase())
+        );
       });
     }
 
     return filteredData;
-  }, [data, filterValue, statusFilter, filterOptions]);
+  }, [data, filterValue, hasSearchFilter]);
 
-  // Cálculo de páginas
   const pages = Math.ceil(filteredItems.length / rowsPerPage);
 
   useEffect(() => {
-    if (page > pages) {
-      setPage(pages || 1);
+    if (page > pages && pages > 0) {
+      setPage(pages);
     }
   }, [pages, page]);
 
-  // Elementos de la página actual
   const items = useMemo(() => {
+    if (hidePagination) return filteredItems;
     const start = (page - 1) * rowsPerPage;
     const end = start + rowsPerPage;
     return filteredItems.slice(start, end);
-  }, [page, filteredItems, rowsPerPage]);
+  }, [page, filteredItems, rowsPerPage, hidePagination]);
 
-  // Ordenamiento de elementos
   const sortedItems = useMemo(() => {
-    // Si disableSorting está activado, devolver items sin ordenar
     if (disableSorting) {
       return items;
     }
 
     return [...items].sort((a, b) => {
-      // Usar getObjectValue para obtener los valores de forma segura
       const first = getObjectValue(a, sortDescriptor.column as string);
       const second = getObjectValue(b, sortDescriptor.column as string);
 
-      // Manejo especial para comparar números como strings
       if (typeof first === "string" && !isNaN(Number(first)) && typeof second === "string" && !isNaN(Number(second))) {
         const numA = Number(first);
         const numB = Number(second);
@@ -141,13 +121,11 @@ export const GenericTable = <T extends ItemData>({
         return sortDescriptor.direction === "descending" ? -cmp : cmp;
       }
 
-      // Comparación estándar
       const cmp = first < second ? -1 : first > second ? 1 : 0;
       return sortDescriptor.direction === "descending" ? -cmp : cmp;
     });
-  }, [sortDescriptor, items]);
+  }, [sortDescriptor, items, disableSorting]);
 
-  // Callbacks para paginación
   const onNextPage = useCallback((): void => {
     if (page < pages) {
       setPage(page + 1);
@@ -163,10 +141,9 @@ export const GenericTable = <T extends ItemData>({
   const onRowsPerPageChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>): void => {
     const newRowsPerPage = Number(e.target.value);
     setRowsPerPage(newRowsPerPage);
-    setPage(1); // Resetear a la primera página
+    setPage(1);
   }, []);
 
-  // Callbacks para búsqueda
   const onSearchChange = useCallback((value: string): void => {
     if (value) {
       setFilterValue(value);
@@ -182,89 +159,40 @@ export const GenericTable = <T extends ItemData>({
   }, []);
 
   const topContent = useMemo(() => {
+    if (hideSearch && !topContentExtras) return null;
+
     return (
       <div className="flex flex-col gap-4">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-3">
-          {/* Input de búsqueda */}
-          <Input
-            isClearable
-            className="w-full sm:max-w-[40%]"
-            placeholder={t("common:Comunes.Actions.Buscar")}
-            startContent={<SearchIcon />}
-            value={filterValue}
-            onClear={() => onClear()}
-            onValueChange={onSearchChange}
-            variant="bordered"
-          />
+          {!hideSearch && (
+            <Input
+              isClearable
+              className="w-full sm:max-w-[40%]"
+              placeholder="Buscar..."
+              value={filterValue}
+              onClear={() => onClear()}
+              onValueChange={onSearchChange}
+              variant="bordered"
+            />
+          )}
 
-          {/* Botones */}
-          <div className="flex flex-col xs:flex-row sm:flex-row gap-3 w-full sm:w-auto sm:ml-auto">
-            {filterOptions && (
-              <Dropdown>
-                <DropdownTrigger>
-                  <Button endContent={<ChevronDownIcon className="text-small" />} variant="flat" className="w-full sm:w-auto justify-between sm:justify-center">
-                    Status
-                  </Button>
-                </DropdownTrigger>
-                <DropdownMenu
-                  disallowEmptySelection
-                  aria-label="Status Filter"
-                  closeOnSelect={false}
-                  selectedKeys={statusFilter}
-                  selectionMode="multiple"
-                  onSelectionChange={setStatusFilter}
-                >
-                  {filterOptions.map((option) => (
-                    <DropdownItem key={option.uid} className="capitalize">
-                      {capitalize(option.name)}
-                    </DropdownItem>
-                  ))}
-                </DropdownMenu>
-              </Dropdown>
-            )}
-
-            {/* Extras content */}
-            {topContentExtras && <div className="flex">{topContentExtras}</div>}
-
-            {/* Dropdown de columnas */}
-            <Dropdown>
-              <DropdownTrigger>
-                <Button endContent={<ChevronDownIcon className="text-small" />} variant="flat" className="w-full sm:w-auto justify-between sm:justify-center">
-                  {t("common:Comunes.Campos.Columnas") || "Columnas"}
-                </Button>
-              </DropdownTrigger>
-              <DropdownMenu
-                disallowEmptySelection
-                aria-label="Table Columns"
-                closeOnSelect={false}
-                selectedKeys={visibleColumns}
-                selectionMode="multiple"
-                onSelectionChange={setVisibleColumns}
-              >
-                {columns.map((column) => (
-                  <DropdownItem key={column.uid} className="capitalize">
-                    {typeof column.name === 'string' ? capitalize(column.name) : column.name}
-                  </DropdownItem>
-                ))}
-              </DropdownMenu>
-            </Dropdown>
-          </div>
+          {topContentExtras && <div className="flex ml-auto">{topContentExtras}</div>}
         </div>
       </div>
     );
-  }, [filterValue, statusFilter, visibleColumns, onSearchChange, filterOptions, topContentExtras, columns, t]);
+  }, [filterValue, onSearchChange, topContentExtras, hideSearch, onClear]);
 
-  // Contenido inferior
   const bottomContent = useMemo(() => {
+    if (hidePagination) return null;
+
     return (
       <div className="py-4 px-4 flex flex-col sm:flex-row justify-between items-center gap-4 bg-gray-100 dark:bg-zinc-800 rounded-lg shadow-sm border border-gray-200 dark:border-zinc-700">
-        {/* Sección izquierda */}
         <div className="w-full sm:w-auto flex flex-col sm:flex-row justify-between sm:justify-start items-center gap-4">
           <span className="text-sm text-gray-500 dark:text-gray-400">
             Total: <span className="font-medium text-gray-700 dark:text-gray-200">{data.length}</span>
           </span>
           <div className="flex items-center space-x-2">
-            <label className="text-sm text-gray-500 dark:text-gray-400">{t("common:Comunes.Campos.Filas") || "Filas"}</label>
+            <span className="text-sm text-gray-500 dark:text-gray-400">Filas</span>
             <select
               title="Rows per page"
               value={rowsPerPage}
@@ -281,13 +209,12 @@ export const GenericTable = <T extends ItemData>({
           {!hideSelection && (
             <span className="text-sm text-gray-500 dark:text-gray-400">
               {selectedKeys === "all"
-                ? t("common:Comunes.Campos.TodosSeleccionados") || "Todos seleccionados"
+                ? "Todos seleccionados"
                 : `${(selectedKeys as Set<string>).size} de ${filteredItems.length} seleccionados`}
             </span>
           )}
         </div>
 
-        {/* Sección central - Paginación */}
         <div className="w-full sm:w-auto">
           <Pagination
             isCompact
@@ -295,7 +222,7 @@ export const GenericTable = <T extends ItemData>({
             showShadow
             color="primary"
             page={page}
-            total={pages}
+            total={pages || 1}
             onChange={setPage}
             classNames={{
               item: "bg-transparent dark:bg-transparent",
@@ -306,18 +233,17 @@ export const GenericTable = <T extends ItemData>({
           />
         </div>
 
-        {/* Sección derecha - Botones de navegación */}
         <div className="w-full sm:w-auto flex justify-end gap-2">
-          <Button isDisabled={pages === 1} size="sm" variant="ghost" onPress={onPreviousPage} className="text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">
-            {t("common:Comunes.Campos.Previo") || "Anterior"}
+          <Button isDisabled={pages <= 1} size="sm" variant="ghost" onPress={onPreviousPage} className="text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">
+            Anterior
           </Button>
-          <Button isDisabled={pages === 1} size="sm" variant="ghost" onPress={onNextPage} className="text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">
-            {t("common:Comunes.Campos.Siguiente") || "Siguiente"}
+          <Button isDisabled={pages <= 1} size="sm" variant="ghost" onPress={onNextPage} className="text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">
+            Siguiente
           </Button>
         </div>
       </div>
     );
-  }, [selectedKeys, filteredItems.length, page, pages, onPreviousPage, onNextPage, hideSelection, data.length, rowsPerPage, onRowsPerPageChange, t]);
+  }, [selectedKeys, filteredItems.length, page, pages, onPreviousPage, onNextPage, hideSelection, data.length, rowsPerPage, onRowsPerPageChange, hidePagination]);
 
   return (
     <Table
@@ -347,7 +273,7 @@ export const GenericTable = <T extends ItemData>({
           </TableColumn>
         )}
       </TableHeader>
-      <TableBody emptyContent={t("common:Comunes.SinInformacion")} items={sortedItems} className="bg-transparent">
+      <TableBody emptyContent="No hay información disponible" items={sortedItems} className="bg-transparent">
         {(item) => (
           <TableRow key={String(item.id)}>
             {(columnKey) => <TableCell>{renderCell ? renderCell(item, columnKey.toString()) : getObjectValue(item, columnKey.toString())}</TableCell>}
