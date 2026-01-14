@@ -42,6 +42,7 @@ export default function DocsPage() {
             image: "https://via.placeholder.com/200",
             description: "Descripción del producto",
           }}
+          
           onAddToCart={(product) => {
             console.log("Producto agregado:", product);
             // Aquí iría tu lógica real para agregar al carrito
