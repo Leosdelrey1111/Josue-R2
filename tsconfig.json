@@ -9,7 +9,7 @@
       // "@api/*": ["./src/api/*"],
       // "@assets/*": ["./src/assets/*"],
       "@components/*": ["./src/components/*"],
-      // "@context/*": ["./src/context/*"],
+      "@context/*": ["./src/context/*"],
       "@layout/*": ["./src/layout/*"],
       "@modules/*": ["./src/modules/*"],
       // "@routes/*": ["./src/routes/*"],

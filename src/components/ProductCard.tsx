@@ -1,12 +1,6 @@
-import { Card, CardBody, CardFooter, Image, Button } from "@heroui/react";
-
-export interface Product {
-  id: string;
-  name: string;
-  price: number;
-  image: string;
-  description?: string;
-}
+import React from "react";
+import { Product } from "../types";
+import { GenericCard } from "./GenericCard";
 
 interface ProductCardProps {
   product: Product;
@@ -14,39 +8,23 @@ interface ProductCardProps {
 }
 
 export const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart }) => {
+  const formatCurrency = (amount: number) => new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(amount);
+
   return (
-    <Card shadow="sm" className="hover:shadow-lg transition-shadow">
-      <CardBody className="overflow-visible p-0">
-        <Image
-          shadow="sm"
-          radius="lg"
-          width="100%"
-          alt={product.name}
-          className="w-full object-cover h-[200px]"
-          src={product.image}
-        />
-      </CardBody>
-      <CardFooter className="text-small flex-col items-start gap-2">
-        <div className="w-full">
-          <b className="text-lg">{product.name}</b>
-          {product.description && (
-            <p className="text-default-500 text-sm mt-1">{product.description}</p>
-          )}
+    <GenericCard>
+      <div className="p-8 bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
+        <span className="text-6xl">{product.image}</span>
+      </div>
+      <div className="p-4">
+        <h3 className="font-semibold text-gray-800 mb-1">{product.name}</h3>
+        <p className="text-sm text-gray-600 mb-3">{product.description}</p>
+        <div className="flex justify-between items-center">
+          <span className="text-2xl font-bold text-green-600">{formatCurrency(product.price)}</span>
         </div>
-        <div className="w-full flex justify-between items-center mt-2">
-          <p className="text-2xl font-bold text-primary">
-            ${product.price.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
-          </p>
-          <Button
-            color="primary"
-            size="sm"
-            onPress={() => onAddToCart(product)}
-            className="font-semibold"
-          >
-            Agregar
-          </Button>
-        </div>
-      </CardFooter>
-    </Card>
+        <button onClick={() => onAddToCart(product)} className="w-full mt-3 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition-colors font-medium">
+          Agregar al carrito
+        </button>
+      </div>
+    </GenericCard>
   );
 };
