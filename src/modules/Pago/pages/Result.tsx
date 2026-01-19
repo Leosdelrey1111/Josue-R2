@@ -1,3 +1,4 @@
+// src/modules/Pago/pages/Result.tsx (VERSIÓN CORREGIDA)
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { CreditCard } from "../../../components/icons";
@@ -8,21 +9,38 @@ import { PaymentResult } from "../../../types";
 
 export const ResultPage: React.FC = () => {
   const [result, setResult] = useState<PaymentResult | null>(null);
+  const [error, setError] = useState<string>("");
   const { clearCart } = useCart();
   const navigate = useNavigate();
 
   useEffect(() => {
-    const savedResult = sessionStorage.getItem("paymentResult");
-    if (savedResult) {
+    try {
+      const savedResult = sessionStorage.getItem("paymentResult");
+
+      if (!savedResult) {
+        setError("No se encontró información de pago");
+        navigate("/");
+        return;
+      }
+
       const parsed = JSON.parse(savedResult);
+
+      // Validar que tenga la estructura correcta
+      if (!parsed || !parsed.schedule || !Array.isArray(parsed.schedule)) {
+        setError("Datos de pago inválidos");
+        return;
+      }
+
       // Convertir strings de fechas a objetos Date
       parsed.schedule = parsed.schedule.map((item: any) => ({
         ...item,
         date: new Date(item.date),
       }));
+
       setResult(parsed);
-    } else {
-      navigate("/");
+    } catch (err) {
+      console.error("Error al cargar resultado:", err);
+      setError("Error al procesar los datos de pago");
     }
   }, [navigate]);
 
@@ -31,10 +49,29 @@ export const ResultPage: React.FC = () => {
   const handleNewPurchase = () => {
     clearCart();
     sessionStorage.removeItem("paymentResult");
+    sessionStorage.removeItem("orderId");
+    sessionStorage.removeItem("orderNumber");
     navigate("/");
   };
 
-  if (!result) return <div>Cargando...</div>;
+  if (error) {
+    return (
+      <div className="text-center py-12">
+        <p className="text-red-600 text-lg mb-4">{error}</p>
+        <button onClick={() => navigate("/")} className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+          Volver al inicio
+        </button>
+      </div>
+    );
+  }
+
+  if (!result) {
+    return (
+      <div className="flex justify-center items-center min-h-[400px]">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -49,17 +86,17 @@ export const ResultPage: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         <GenericCard variant="primary" className="p-4 text-center">
           <p className="text-sm text-gray-600 mb-1">Monto Original</p>
-          <p className="text-2xl font-bold text-blue-600">{formatCurrency(result.originalAmount)}</p>
+          <p className="text-2xl font-bold text-blue-600">{formatCurrency(result.originalAmount || 0)}</p>
         </GenericCard>
 
         <GenericCard variant="danger" className="p-4 text-center">
-          <p className="text-sm text-gray-600 mb-1">Interés ({(result.interestRate * 100).toFixed(0)}%)</p>
-          <p className="text-2xl font-bold text-red-600">{formatCurrency(result.totalAmount - result.originalAmount)}</p>
+          <p className="text-sm text-gray-600 mb-1">Interés ({((result.interestRate || 0) * 100).toFixed(0)}%)</p>
+          <p className="text-2xl font-bold text-red-600">{formatCurrency((result.totalAmount || 0) - (result.originalAmount || 0))}</p>
         </GenericCard>
 
         <GenericCard variant="success" className="p-4 text-center">
           <p className="text-sm text-gray-600 mb-1">Total a Pagar</p>
-          <p className="text-2xl font-bold text-green-600">{formatCurrency(result.totalAmount)}</p>
+          <p className="text-2xl font-bold text-green-600">{formatCurrency(result.totalAmount || 0)}</p>
         </GenericCard>
       </div>
 
