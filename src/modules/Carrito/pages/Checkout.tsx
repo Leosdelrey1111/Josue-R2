@@ -74,20 +74,17 @@ export const CheckoutPage = () => {
                 {cartItems.map((item) => (
                   <div key={item.id} className="flex justify-between items-center">
                     <div className="flex gap-3 items-center">
-                      <img
-                        src={item.image}
-                        alt={item.name}
-                        className="w-12 h-12 object-cover rounded"
-                      />
+                      <img src={item.image} alt={item.name} className="w-12 h-12 object-cover rounded" />
                       <div>
                         <p className="font-semibold text-sm">{item.name}</p>
                         <p className="text-xs text-default-500">
-                          ${item.price.toLocaleString('es-MX')} x {item.quantity}
+                          ${item.price.toLocaleString("es-MX")} x {item.quantity}
                         </p>
                       </div>
                     </div>
                     <p className="font-semibold">
-                      ${(item.price * item.quantity).toLocaleString('es-MX', {
+                      $
+                      {(item.price * item.quantity).toLocaleString("es-MX", {
                         minimumFractionDigits: 2,
                       })}
                     </p>
@@ -97,7 +94,8 @@ export const CheckoutPage = () => {
                 <div className="flex justify-between items-center pt-2">
                   <p className="text-xl font-bold">Total:</p>
                   <p className="text-2xl font-bold text-primary">
-                    ${totalAmount.toLocaleString('es-MX', {
+                    $
+                    {totalAmount.toLocaleString("es-MX", {
                       minimumFractionDigits: 2,
                     })}
                   </p>
@@ -108,19 +106,10 @@ export const CheckoutPage = () => {
 
           {/* Selector de banco */}
           <div>
-            <BankSelector
-              selectedBank={selectedBank}
-              onBankChange={setSelectedBank}
-              totalAmount={totalAmount}
-            />
+            <BankSelector selectedBank={selectedBank} onBankChange={setSelectedBank} totalAmount={totalAmount} />
 
             {totalAmount >= 5000 && (
-              <Button
-                color="success"
-                size="lg"
-                className="w-full mt-6"
-                onPress={handleCalculate}
-              >
+              <Button color="success" size="lg" className="w-full mt-6" onPress={handleCalculate}>
                 Calcular Plan de Pagos
               </Button>
             )}

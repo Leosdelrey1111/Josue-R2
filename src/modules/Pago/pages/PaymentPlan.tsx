@@ -1,72 +1,93 @@
-// src/modules/Pago/pages/Payment.tsx (VERIFICAR ESTA PARTE)
-import React, { useState } from "react";
+// src/modules/Pago/pages/Payment.tsx
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Package } from "../../../components/icons";
-import { BankSelector } from "../../../components/BankSelector";
+import { Package, CreditCard, CheckCircle, AlertCircle } from "../../../components/icons";
 import { useCart } from "../../../hooks/useCart";
-import { BANKS_CONFIG } from "../../../config/products";
-import { Banco1, Banco2, Banco3, DeferredPaymentPlan } from "../../../config/banks";
+import { CardBankDetector, CardValidator, processCardPayment } from "../../../config/banks";
 
 export const PaymentPage: React.FC = () => {
   const { getTotalCart, clearCart } = useCart();
-  const [selectedBank, setSelectedBank] = useState<string>("");
+  const [cardNumber, setCardNumber] = useState("");
+  const [detectedBank, setDetectedBank] = useState<string | null>(null);
+  const [cardError, setCardError] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+
   const total = getTotalCart();
 
-  const formatCurrency = (amount: number) => new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(amount);
+  const formatCurrency = (amount: number) =>
+    new Intl.NumberFormat("es-MX", {
+      style: "currency",
+      currency: "MXN",
+    }).format(amount);
+
+  useEffect(() => {
+    if (cardNumber.replace(/[\s-]/g, "").length >= 6) {
+      const bankName = CardBankDetector.getBankName(cardNumber);
+      setDetectedBank(bankName);
+
+      if (bankName) {
+        setCardError("");
+      } else if (cardNumber.replace(/[\s-]/g, "").length >= 13) {
+        setCardError("Tarjeta no soportada");
+      }
+    } else {
+      setDetectedBank(null);
+      setCardError("");
+    }
+  }, [cardNumber]);
+
+  const handleCardNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let value = e.target.value.replace(/\D/g, "");
+    if (value.length > 16) value = value.substring(0, 16);
+    const formatted = value.replace(/(\d{4})/g, "$1 ").trim();
+    setCardNumber(formatted);
+  };
 
   const processPayment = () => {
-    if (!selectedBank) {
-      alert("Por favor seleccione un banco");
+    if (!cardNumber) {
+      setCardError("Por favor ingrese un número de tarjeta");
+      return;
+    }
+
+    if (!CardValidator.isValidCardNumber(cardNumber)) {
+      setCardError("Número de tarjeta inválido");
+      return;
+    }
+
+    if (!detectedBank) {
+      setCardError("Tarjeta no soportada");
       return;
     }
 
     try {
       setLoading(true);
+      const result = processCardPayment(cardNumber, total);
 
-      let bank;
-      switch (selectedBank) {
-        case "banco1":
-          bank = new Banco1();
-          break;
-        case "banco2":
-          bank = new Banco2();
-          break;
-        case "banco3":
-          bank = new Banco3();
-          break;
-        default:
-          alert("Banco inválido");
-          return;
+      if ("error" in result) {
+        setCardError(result.error);
+        return;
       }
 
-      const paymentPlan = new DeferredPaymentPlan(bank);
-      const result = paymentPlan.processPayment(total);
-
-      // DEBUG: Ver qué se está guardando
-      console.log("Payment result:", result);
-      console.log("Schedule:", result.schedule);
-
-      // Guardar en sessionStorage
       sessionStorage.setItem("paymentResult", JSON.stringify(result));
-
-      // Verificar que se guardó
-      const saved = sessionStorage.getItem("paymentResult");
-      console.log("Saved to sessionStorage:", saved);
-
       clearCart();
       navigate("/resultado");
     } catch (error) {
       console.error("Error al procesar pago:", error);
-      alert("Error al procesar el pago");
+      setCardError("Error al procesar el pago");
     } finally {
       setLoading(false);
     }
   };
 
+  const exampleCards = [
+    { bank: "BBVA", number: "4506 7800 0000 0018" },
+    { bank: "Santander", number: "5234 5600 0000 0019" },
+    { bank: "Banamex", number: "6015 6700 0000 0001" },
+  ];
+
   return (
-    <div>
+    <div className="max-w-2xl mx-auto">
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-2xl font-bold text-gray-800">Pagos Diferidos</h2>
         <button onClick={() => navigate("/carrito")} className="text-blue-600 hover:text-blue-700 font-medium">
@@ -84,19 +105,88 @@ export const PaymentPage: React.FC = () => {
         </div>
       </div>
 
-      <h3 className="text-lg font-semibold mb-4 text-gray-700">Selecciona tu banco:</h3>
+      <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+        <h3 className="text-lg font-semibold mb-4 text-gray-700 flex items-center gap-2">
+          <CreditCard className="w-5 h-5" />
+          Ingresa tu tarjeta de crédito
+        </h3>
 
-      <BankSelector banks={BANKS_CONFIG} selectedBank={selectedBank} onSelectBank={setSelectedBank} cartTotal={total} />
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-700 mb-2">Número de Tarjeta</label>
+          <input
+            type="text"
+            value={cardNumber}
+            onChange={handleCardNumberChange}
+            placeholder="1234 5678 9012 3456"
+            maxLength={19}
+            className={`w-full px-4 py-3 border-2 rounded-lg text-lg font-mono focus:outline-none transition-colors ${
+              cardError ? "border-red-500 focus:border-red-600" : detectedBank ? "border-green-500 focus:border-green-600" : "border-gray-300 focus:border-blue-500"
+            }`}
+          />
+
+          {detectedBank && !cardError && (
+            <div className="mt-2 flex items-center gap-2 text-green-600">
+              <CheckCircle className="w-5 h-5" />
+              <span className="font-semibold">Banco detectado: {detectedBank}</span>
+            </div>
+          )}
+
+          {cardError && (
+            <div className="mt-2 flex items-center gap-2 text-red-600">
+              <AlertCircle className="w-5 h-5" />
+              <span className="text-sm">{cardError}</span>
+            </div>
+          )}
+        </div>
+
+        {detectedBank && !cardError && (
+          <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+            <p className="text-sm text-gray-600 mb-2">Vista previa del plan:</p>
+            <div className="grid grid-cols-3 gap-4 text-center">
+              <div>
+                <p className="text-xs text-gray-500">Meses</p>
+                <p className="text-lg font-bold text-gray-800">{detectedBank.includes("BBVA") ? "9" : detectedBank.includes("Santander") ? "12" : "18"}</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500">Interés</p>
+                <p className="text-lg font-bold text-gray-800">{detectedBank.includes("BBVA") ? "8%" : detectedBank.includes("Santander") ? "10%" : "13%"}</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500">Total aprox.</p>
+                <p className="text-lg font-bold text-gray-800">
+                  {formatCurrency(total * (1 + (detectedBank.includes("BBVA") ? 0.08 : detectedBank.includes("Santander") ? 0.1 : 0.13)))}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
 
       <button
         onClick={processPayment}
-        disabled={!selectedBank || loading}
-        className={`w-full mt-6 py-4 rounded-lg font-bold text-lg transition-all ${
-          selectedBank && !loading ? "bg-green-600 text-white hover:bg-green-700 shadow-lg" : "bg-gray-300 text-gray-500 cursor-not-allowed"
+        disabled={!detectedBank || !!cardError || loading}
+        className={`w-full py-4 rounded-lg font-bold text-lg transition-all ${
+          detectedBank && !cardError && !loading ? "bg-green-600 text-white hover:bg-green-700 shadow-lg" : "bg-gray-300 text-gray-500 cursor-not-allowed"
         }`}
       >
-        {loading ? "Procesando..." : selectedBank ? "Calcular Plan de Pagos" : "Selecciona un banco para continuar"}
+        {loading ? "Procesando..." : detectedBank && !cardError ? `Calcular Plan de Pagos con ${detectedBank}` : "Ingresa una tarjeta válida para continuar"}
       </button>
+
+      <div className="mt-6 bg-gray-50 rounded-lg p-4 border border-gray-200">
+        <p className="text-sm font-semibold text-gray-700 mb-3">💳 Tarjetas de prueba:</p>
+        <div className="space-y-2">
+          {exampleCards.map((card, index) => (
+            <button
+              key={index}
+              onClick={() => setCardNumber(card.number)}
+              className="w-full text-left px-3 py-2 bg-white rounded border border-gray-300 hover:bg-blue-50 hover:border-blue-400 transition-colors"
+            >
+              <span className="font-mono text-sm">{card.number}</span>
+              <span className="ml-2 text-xs text-gray-500">({card.bank})</span>
+            </button>
+          ))}
+        </div>
+      </div>
     </div>
   );
 };
